@@ -3,7 +3,7 @@
  * the data is conform to expectation.
  */
 
-import {OriginSampleData, ArgsType, unZipData, downloadZip, getDatasetDir, parseAnnotation, createAnnotationFromJson, DataCollectType} from '@pipcook/pipcook-core';
+import {OriginSampleData, ArgsType, unZipData, downloadZip, getDatasetDir, decompressTar, createAnnotationFromJson, DataCollectType} from '@pipcook/pipcook-core';
 import glob from 'glob-promise';
 import * as path from 'path';
 import * as assert from 'assert';
@@ -27,7 +27,7 @@ const imageDetectionDataCollect: DataCollectType = async (args?: ArgsType): Prom
   assert.ok(url, 'Please specify a url of zip of your dataset');
   const fileName = url.split(path.sep)[url.split(path.sep).length - 1];
   const extention = fileName.split('.');
-  if (extention[extention.length - 1] !== 'zip') {
+  if (extention[extention.length - 1] !== 'zip' && extention[extention.length - 1] !== 'gz') {
     throw new Error('the file must be zip file');
   }
   const datasetName = extention[0];
@@ -40,13 +40,19 @@ const imageDetectionDataCollect: DataCollectType = async (args?: ArgsType): Prom
   if (/^file:\/\/.*/.test(url)) {
     url = url.substring(7);
   } else {
-    const targetPath = path.join(saveDir, Date.now() + '.zip');
+    const extentions = extention[extention.length - 1] == 'zip' ? '.zip' : '.tar.gz'
+    const targetPath = path.join(saveDir, Date.now() + extentions);
     console.log('downloading dataset ...')
     await downloadZip(url, targetPath);
     url = targetPath;
   }
   console.log('unzip and collecting data...');
-  await unZipData(url, saveDir);
+  if (extention[extention.length - 1] == 'zip') {
+    await unZipData(url, saveDir);
+  } else {
+    await decompressTar(url, saveDir);
+  }
+  
   const imagePaths = await glob(path.join(saveDir, 'images' ,'*.+(jpg|jpeg|png)'));
   shuffle(imagePaths);
   const countNumber = imagePaths.length;
